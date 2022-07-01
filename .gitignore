@@ -1,0 +1,11 @@
+# Ignore everything (including subdirectories)
+*
+
+# NOT these files in cd
+!.gitignore
+!README.md
+!Program.cs
+
+# NOT these subdirs/subfiles
+# !*/a/b/file1.txt
+# !*/a/b/c/*
