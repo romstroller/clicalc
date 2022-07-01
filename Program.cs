@@ -7,41 +7,44 @@ namespace clicalc6 {
     class Program {
         static void Main(string[] args) {
 
-            WriteLine( "CLICALC V6 (now with more cylinders!)" );
+            WriteLine( "\nCLICALC V6 (now with more cylinders!)\n" );
 
             // Start with example if no input from cmd
-            string example = "-82 ( ( 0.5- -12,000 +2 ) / .2 ) ( 3 ( 1 - 1.5 * -2 ) 4.2 ) 7";
+            string example = "-86 ( ( 0.5- -18,000 +9 ) / .2 ) ( 3 ( 1 - 1.5 * -3 ) 4.090 ) 7";
             WriteLine( $"EXAMPLE: \n{example}" );
             Calculation introCalc = new Calculation ( '$', example);
-            // introCalc.showOutcome();
+            if ( introCalc.outcome != null ) { introCalc.outcome.getOutput(); }
 
             while (true) {
                 WriteLine("\nInput statements with operators: ,.()-+*/ (spaces ignored).");
-                WriteLine("Exit with ':exit'");
+                WriteLine("Exit with ':exit'\n");
                 string? userInput = ReadLine();
-                if ( userInput == null ) { userInput = "0"; }
-                if ( userInput == ":exit" ) { break; }
-                Calculation newCalc = new Calculation ( '$', userInput);
-                // newCalc.showOutcome();
+                switch (userInput) {
+                    case ( null ) : continue;
+                    case ( ":exit" ) : return;
+                    default : 
+                        Calculation newCalc = new Calculation ( '$', userInput); 
+                        if ( newCalc.outcome != null ) { newCalc.outcome.getOutput(); }
+                        continue; }
             }
         }
     }
 
     class Calculation {
+        public Sequence? outcome { get; set; }
+        internal int hiPorder { get; set; } = 0;
         private bool syntaxValid = true;
         // public Number? outcome;
         internal Calculation ( char cha, string input ) {
             
             // basicinput validation + cleaning. 
             string inputValidated = validateInput( input );
-
             Sequence inputSymbols = parseSymbols( inputValidated ); // Sort numbers & ops
             Sequence signsParsed = parseSigned( inputSymbols ); // Parse signed 
             Sequence statements = parseParentheses( signsParsed ); // Parse parentheses
 
             // Resolution loop ( resolooption )
-            if ( syntaxValid ) { Number outcome = resolveOperations( statements ); }
-            
+            if ( syntaxValid ) { Sequence outcome = resolveOperations( statements ); }
         }
 
         private string validateInput( string input ) {
@@ -74,8 +77,7 @@ namespace clicalc6 {
                 }
                 replacePos = 0; groupsPos++;
             }
-
-            if ( fixedInput != input) { WriteLine( $"\nIMPLICITS FIXED: \n{fixedInput}" ); }
+            if ( fixedInput != input) { WriteLine( $"\nIMPLICITS FIXED: \n{fixedInput}\n" ); }
             return fixedInput;
         }
         
@@ -93,59 +95,57 @@ namespace clicalc6 {
                     collectNum = true; }
                 // if collecting and hit non-num, add new number & refresh collector
                 else if ( collectNum &&  !(Char.IsDigit(c) == true || c == '.' ) ) {
-                    Number newNum = new Number ( ); newNum.parseNumber( numList );
-
+                    Number newNum = new Number ( ); 
+                    newNum.parseNumber( numList ); 
                     outList.Add( newNum );  // this doesnt trigger if number unclosed at end input
-
                     collectNum = false; numList = new Sequence(); }
 
                 // if collecting number, add as number, else add symbol
                 if ( collectNum ) { numList.Add( new Symbol ( c ));
                     // if hit end range, close&add open number 
-                    if ( index == input.Count() ) { 
-                        Number newNum = new Number(); newNum.parseNumber( numList );
-                        outList.Add( newNum ); } }
+                    if ( index == input.Count() ) {
+                        Number newNum = new Number(); 
+                        newNum.parseNumber( numList ); 
+                        outList.Add( newNum ); } ; }
                 else { outList.Add( new Symbol( c ) ); }
-
                 index++;
-
             }
-
             return outList;
         }
 
         private Sequence parseSigned( Sequence symbolSeq ) {
 
-            Sequence outSequence = symbolSeq; // output sequence
+            Sequence outSequence = symbolSeq;
 
-            // string concatenation of symbol values    
-            string getOutstring() { 
-                var outStr = outSequence.Select( x => x.str ).ToString();
-                return ( outStr != null ) ? outStr : "null"; }
+            int posit = 1; // start at first possible number-part
             
-            string seqString = getOutstring();
-            string pattern; int pattPos = 0;
+            while ( posit < outSequence.Count() ) { 
 
-            while ( pattPos < Rules.signed.Count() ) {
-                // get pattern and try match
-                pattern = Rules.signed[pattPos];
-                Match match = Regex.Match(seqString, pattern);
+				// get curr as number if type, prev symbol for sign
+				Symbol sym = outSequence[posit];
+                Number? num = sym as Number;
+				Symbol sign = outSequence[posit-1];
 
-                // if match, get symbol from L+R, replace in outSequence
-                if ( match.Success ) {
-                    int index = match.Index==0 ? match.Index : match.Index+1;
-                    Symbol sign = outSequence[index]; 
-                    Number? number = outSequence[index+1] as Number;
-                    if ( number !=null ) { Number signedNumber = new Number ( ) {
-                        // signed value is 0-number if negative, else number
-                        value = ( sign.cha == '+' ) ? number.value : 0-number.value }; }
-                    else { WriteLine( "Index align issue at parseSigned" ); }
+				// IF is signed number
+				if ( num != null) { //
+                    if ( ( sign.cha == '+' || sign.cha == '-' ) &&
+                    // and prev starts sequence OR next-preceding is any operator
+					( ( posit-1 == 0 ) || ( outSequence[posit-2] is not Number ) ) ) {
+
+					// replace old rsymbols with new of signed value
+					outSequence.Remove(sign); outSequence.Remove(num);
+                    double val = ( sign.cha == '-' ) ? 0-num.value : num.value;
+                    outSequence.Insert( posit-1, new Number( val ) );
+
+                    continue; } // no incr. (two syms replaced by one)
                 }
-                seqString = getOutstring(); pattPos++;
-             }
+                posit++; 
+			}
+
+            WriteLine( $"OUSEQ: { outSequence.getOutput() }" );
             return outSequence;
         }
-        
+
 		private Sequence parseParentheses( Sequence symbolSeq ) {
 
             Sequence parenthSeq = new Sequence();
@@ -167,7 +167,7 @@ namespace clicalc6 {
                 // if collecting and lose target pLev, stop collecting
                 if ( collecting && ( sym.pLevel != targetPLev ) ) { collecting = false; 
                     // & increment order if break parenth.
-                    if ( sym.pLevel < targetPLev ) { assignOrd++; } }  
+                    if ( sym.pLevel < targetPLev ) { assignOrd++; hiPorder++; } }  
                 // assign if the weather is fine
                 if ( collecting && ( sym.pLevel == targetPLev ) ) { sym.pOrder = assignOrd; }
                 // sequence index exceeds endrange, stop collecting, decr. pTarget
@@ -177,37 +177,18 @@ namespace clicalc6 {
             return parenthSeq;
         }
 
-        private Number resolveOperations( Sequence symbolSeq ) {
+        private Sequence resolveOperations( Sequence symbolSeq ) {
 
             Sequence outGroup = symbolSeq;
-            List<Symbol> hiPGroup = new List<Symbol> ();
-            Number outcome = new Number ('#') { };
+            Sequence hiPSequence = new Sequence();
 
             int pOrder = 0;
-			
-			while ( pOrder > -1 ) {
-				
-				//NOT RECOGNIZING SIGN PARSED FOR 12000, CHECK FOR 82.
-				//NOT RECOGNIZING SIGN PARSED FOR 12000, CHECK FOR 82.
-				//NOT RECOGNIZING SIGN PARSED FOR 12000, CHECK FOR 82.
-				//NOT RECOGNIZING SIGN PARSED FOR 12000, CHECK FOR 82.
+			while ( pOrder <= hiPorder ) {
 
 				// get first group at highest parenthesis-depth
-                hiPGroup = outGroup.Where( sym => sym.pOrder == pOrder ).ToList();
 
-                WriteLine( $"outGroup OUTPUT: {outGroup.getOutput()} (parenth is dropped)" ); 
-                
-                // string[] hiPStrs = hiPGroup.Select( x => x.str ).ToString();
-                // if ( outStr != null ) { WriteLine ( $"hiPGroup: { outStr.ToString() }" ); } 
-                // else { WriteLine( "hiPGroup NULL" ); }
-
-                foreach (Symbol sym in hiPGroup ) { 
-                    Number? num = sym as Number;  
-                    if ( num != null ) {
-                        WriteLine( $"Order: { num.pOrder} : {num.str} "); }
-                    else {
-                        WriteLine( $"Order: { sym.pOrder} : {sym.str} "); }
-                }
+                hiPSequence = new Sequence( outGroup.Where( sym => sym.pOrder == pOrder ) );
+                WriteLine( $"hiPSequence.getOutput { hiPSequence.getOutput() }" );
 
 				// get hi-PEMDAS operator position in hiPstatement
 				//	// add exponents top of MDAS ops
@@ -221,11 +202,11 @@ namespace clicalc6 {
 				
 				// if result, finish & output
 
-                pOrder--;
+                pOrder++;
 
             }
 
-            return outcome;
+            return hiPSequence;
         }
 
         public void showOutcome( ) { 
@@ -254,7 +235,7 @@ namespace clicalc6 {
             // ILLEGAL patterns
             //  identify any not(legal character class)
             new string[] { @"(?<illeg>[^\s,0-9\/\*\+\-\(\)\.])", 
-                "...\nINVALID: >${illeg}< (illegal character)\n" },
+                "...\nINVALID: >${illeg}< (illegal non-variable character)\n" },
             //  more than two plus/minus (allows for operations on signed numbers)
             new string[] { @"(?<illeg>[\+\-][\+\-][\+\-])", 
 	            "...\nINVALID: >${illeg}< (more than two consecutive '+' or '-')\n" },
@@ -270,7 +251,13 @@ namespace clicalc6 {
                 @"[\)\(\+\-\*/][\+\-]", // operator/parenth, sign and number
                 @"^([\+\-])" }; // sign and number at start of input
     }
+
     class Sequence : Collection<Symbol> {
+
+        public Sequence(){}
+        public Sequence( IEnumerable<Symbol> iEnSymbols ){
+            foreach ( Symbol sym in iEnSymbols) { this.Add( sym ); }
+        }
         public string getOutput () {
             string output = "";
             foreach ( Symbol sym in Items ) {
@@ -286,20 +273,22 @@ namespace clicalc6 {
 
         public Number ( char cha='$' ) : base ( cha ) {
         }
+
+        public Number ( double val, char cha='$' ) : base ( cha ) {
+            value = val;
+            str = value.ToString();
+        }
         internal void parseNumber( Sequence numList ) {
+
             // member chars to list, to string
             IEnumerable<char> numChars = numList.Select( x => x.cha ).ToList();
             var numString = string.Join("", numChars );
 
-            if ( numString != null ) WriteLine( numString ); 
-            else { WriteLine( "NUMSTRING NULL ON NEWNUM PARSESEQ" ); } // syntaxInvalid?
-
             // parse double
             try { this.value = Convert.ToDouble(numString); this.str = value.ToString(); }
-            catch ( Exception exc) { 
-                WriteLine($"Number parse failed: {numString} \n{exc}"); 
-                syntaxValid = false; 
-                }
+            catch ( FormatException ) { 
+                WriteLine($"Number parse failed: {numString} \n"); 
+                syntaxValid = false; }
         }
     }
     class Symbol {
