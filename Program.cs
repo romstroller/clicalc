@@ -53,8 +53,10 @@ namespace clicalc6
             while (syntaxValid && solution == null)
             {
                 Sequence operatGroup = getOperation(statements);
-                WriteLine( $"\nGet operation got: {operatGroup.getOutput()}\n" );
+                WriteLine( $"\ngetOperation got: {operatGroup.getOutput()}\n" );
+                WriteLine( "Ctrl-C to exit loop or else to continue"); ReadLine();
                 Number solveValue = solveOperation(operatGroup);
+                WriteLine ( $"Does this just sorta work? Nah ay: {solveValue.value} ");
                 statements = updateSequence(solveValue, statements);
             }
         }
@@ -195,43 +197,40 @@ namespace clicalc6
         }
         private Sequence getOperation(Sequence symbolSeq)
         {
-            int pOrder = 0;
-            Sequence opGroup = new Sequence();
-            Sequence hiPSequence = new Sequence(symbolSeq.Where(sym => sym.pOrder == pOrder));
-            string hiPString = hiPSequence.getOutput();
-
-            WriteLine( $"HONK: hiPString {hiPString}" );
+            int? currPOrder = symbolSeq.OrderBy( sym => sym.pOrder ).First().pOrder;
+            if (currPOrder != null ) { currPOrder = currPOrder.Value; }
+            Sequence hiPSequence = new Sequence(symbolSeq.Where(sym => sym.pOrder == currPOrder));
+            
+            WriteLine( $"\nHONK: getting hi-pemdas op from {hiPSequence.getOutput()}" );
 
             int pemGroupIDX = 0;
             int pemChaIDX = 0;
-
+            Sequence foundOperators = new Sequence();
             while ( pemGroupIDX < Rules.pemdasGroups.Count() ) 
             {
-                // returning well but not getting whichever NEAREST from PEMGROUP.
-
-                // if index of any indexof is >0, add to currGroup array;
-
-                List<int> foundIDXs = new List<int>();
                 char pemCha = Rules.pemdasGroups[pemGroupIDX][pemChaIDX];
-                if ( hiPString.Contains( pemCha ) ) 
-                {  
-                    foundIDXs.Add( hiPString.IndexOf(pemCha) );
+                foreach ( Symbol sym in hiPSequence )
+                {
+                    if ( sym.cha == pemCha ) { foundOperators.Add(sym); }
                 }
-                pemChaIDX++;
-                if (pemChaIDX == Rules.pemdasGroups[pemGroupIDX].Count() )  // something about logic from here
-                {   
-                    if ( foundIDXs.Count() >0 ) 
-                    { 
-                        int nearestIDX = foundIDXs.Min();
-                        return new Sequence {
-                            hiPSequence[nearestIDX - 1], 
-                            hiPSequence[nearestIDX], 
-                            hiPSequence[nearestIDX + 1] };
+                pemChaIDX++; 
+                if (pemChaIDX == Rules.pemdasGroups[pemGroupIDX].Count()) 
+                {
+                    if (foundOperators.Count() != 0 ) 
+                    {
+                        Symbol soonestPemHi = foundOperators
+                            .OrderBy( s => hiPSequence.IndexOf(s) ).First();
+                        return new Sequence 
+                        {
+                            hiPSequence[hiPSequence.IndexOf(soonestPemHi)-1], 
+                            soonestPemHi, 
+                            hiPSequence[hiPSequence.IndexOf(soonestPemHi)+1]
+                        };
                     }
-                    else { pemChaIDX = 0; pemGroupIDX++; }                  // to here
+                    else { pemGroupIDX++; pemChaIDX=0; }
                 }
             }
-            return hiPSequence;
+            return hiPSequence; // default: no operator found, return whole sequence
         }
         private Number solveOperation(Sequence opertnGroup)
         {
@@ -370,9 +369,6 @@ namespace clicalc6
         }
         internal void parseNumber(Sequence numList)
         {
-            // member chars to list, to string
-            // IEnumerable<char> numChars = numList.Select(x => x.cha).ToList();
-            // var numString = string.Join("", numChars);
             string numString = numList.getOutput();
 
             // parse double
