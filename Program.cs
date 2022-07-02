@@ -53,6 +53,7 @@ namespace clicalc6
             while (syntaxValid && solution == null)
             {
                 Sequence operatGroup = getOperation(statements);
+                WriteLine( $"\nGet operation got: {operatGroup.getOutput()}\n" );
                 Number solveValue = solveOperation(operatGroup);
                 statements = updateSequence(solveValue, statements);
             }
@@ -197,28 +198,40 @@ namespace clicalc6
             int pOrder = 0;
             Sequence opGroup = new Sequence();
             Sequence hiPSequence = new Sequence(symbolSeq.Where(sym => sym.pOrder == pOrder));
+            string hiPString = hiPSequence.getOutput();
 
-            // get first group at highest parenthesis-depth, unless no group (L, R, op)
-            while (hiPSequence.Count() >= 3)
+            WriteLine( $"HONK: hiPString {hiPString}" );
+
+            int pemGroupIDX = 0;
+            int pemChaIDX = 0;
+
+            while ( pemGroupIDX < Rules.pemdasGroups.Count() ) 
             {
-                WriteLine($"\nhiPSequence.getOutput {hiPSequence.getOutput()}");
-                WriteLine($"hiPSequence.Count {hiPSequence.Count()}, " +
-                    $"pOrder({pOrder}):({hiPorder})hiPorder\n");
+                // returning well but not getting whichever NEAREST from PEMGROUP.
 
-                // seek PEMDAS-highest operator object in hiPstatement
-                int posit = 0; int opGroupNum = 0;
-                Symbol oprSymbol = hiPSequence[posit];
-                while (opGroupNum >= 0)
-                {
-                    char[] pemGroup = Rules.pemdasGroups[opGroupNum];
-                    oprSymbol = hiPSequence[posit]; posit++;
-                    if (pemGroup.Contains(oprSymbol.cha)) { break; }
-                    if (posit! < hiPSequence.Count()) { posit = 0; opGroupNum--; }
+                // if index of any indexof is >0, add to currGroup array;
+
+                List<int> foundIDXs = new List<int>();
+                char pemCha = Rules.pemdasGroups[pemGroupIDX][pemChaIDX];
+                if ( hiPString.Contains( pemCha ) ) 
+                {  
+                    foundIDXs.Add( hiPString.IndexOf(pemCha) );
                 }
-                opGroup = new Sequence {
-                    hiPSequence[posit - 1], oprSymbol, hiPSequence[posit + 1] };
+                pemChaIDX++;
+                if (pemChaIDX == Rules.pemdasGroups[pemGroupIDX].Count() )  // something about logic from here
+                {   
+                    if ( foundIDXs.Count() >0 ) 
+                    { 
+                        int nearestIDX = foundIDXs.Min();
+                        return new Sequence {
+                            hiPSequence[nearestIDX - 1], 
+                            hiPSequence[nearestIDX], 
+                            hiPSequence[nearestIDX + 1] };
+                    }
+                    else { pemChaIDX = 0; pemGroupIDX++; }                  // to here
+                }
             }
-            return opGroup;
+            return hiPSequence;
         }
         private Number solveOperation(Sequence opertnGroup)
         {
@@ -250,21 +263,22 @@ namespace clicalc6
         private Sequence updateSequence(Number solveValue, Sequence inSequence)
         {
             Sequence outSequence = inSequence;
+
+            // if hiPSequence.Count() == 1 and is number, return value
+            // if hiPSequence.Count() >= 3, do this:
+
             /*
             // replace successful operation group with result-valued number
             // if final value, assign number to this calculation
             // if sequence odd number of elements, syntax invalid ( this could go in parseSequence? )
-
             Number solveValue = new Number();
             double? resultNble = solveSequence(operationGroup);
             if (resultNble.HasValue)
             {
                 WriteLine($"resultNble.Value{resultNble.Value}");
-
                 foreach (Symbol sym in opGroup) { outSequence.Remove(sym); }
                 // outSequence.Insert(posit - 1, new Number { value = resultNble.Value });
                 solveValue = new Number { value = resultNble.Value };
-
                 // refresh parenthesis segment
                 hiPSequence = new Sequence(outSequence.Where(sym => sym.pOrder == pOrder));
             }
@@ -273,13 +287,10 @@ namespace clicalc6
                 WriteLine($"Invalid element in {hiPSequence.getOutput()}");
                 syntaxValid = false; return hiPSequence;
             }
-
                 // update Symbol sequence, run end-checks
                 // if number = 1, place as number in highest-pOrder neighbour ( should be both? ), pOrder--, continue
                 // else probably input syntax issue; statements can only consist of odd numbers of elements (i think?)
                 // if result, finish & output
-
-
             }
             */
             return outSequence;
