@@ -38,8 +38,9 @@ namespace clicalc6
     }
     class Calculation
     {
-        public Number? solution { get; set; } = null;
+        public Sequence? solution { get; set; } = null;
         internal int hiPorder { get; set; } = 0;
+        internal Sequence? hiPSequence { get; set; }
         private bool syntaxValid = true;
         internal Calculation(char cha, string input)
         {
@@ -47,17 +48,17 @@ namespace clicalc6
             string inputValidated = validateInput(input);
             Sequence inputSymbols = parseSymbols(inputValidated);
             Sequence signsParsed = parseSigned(inputSymbols);
-            Sequence statements = parseParentheses(signsParsed);
+            Sequence calculationSeq = parseParentheses(signsParsed);
 
             // Resolution loop ( resolooption )
             while (syntaxValid && solution == null)
             {
-                Sequence operatGroup = getOperation(statements);
-                WriteLine( $"\ngetOperation got: {operatGroup.getOutput()}\n" );
-                WriteLine( "Ctrl-C to exit loop or else to continue"); ReadLine();
-                Number solveValue = solveOperation(operatGroup);
-                WriteLine ( $"Does this just sorta work? Nah ay: {solveValue.value} ");
-                statements = updateSequence(solveValue, statements);
+                Sequence operatGroup = getOperation(calculationSeq);
+                WriteLine($"\ngetOperation got: {operatGroup.getOutput()}\n");
+                WriteLine("Ctrl-C to exit loop or else to continue"); ReadLine();
+                Number? opSolution = solveOperation(operatGroup);
+                if ( opSolution != null ) { WriteLine($"SOLVE opSolution: { opSolution.value } "); }
+                calculationSeq = updateSequence( opSolution, calculationSeq);
             }
         }
         private string validateInput(string input)
@@ -138,7 +139,7 @@ namespace clicalc6
 
             while (posit < outSequence.Count())
             {
-                // get curr as number if type, prev symbol for sign
+                // get curr as number if type, prev symbol for signF
                 Symbol sym = outSequence[posit];
                 Number? num = sym as Number;
                 Symbol sign = outSequence[posit - 1];
@@ -197,44 +198,44 @@ namespace clicalc6
         }
         private Sequence getOperation(Sequence symbolSeq)
         {
-            int? currPOrder = symbolSeq.OrderBy( sym => sym.pOrder ).First().pOrder;
-            if (currPOrder != null ) { currPOrder = currPOrder.Value; }
-            Sequence hiPSequence = new Sequence(symbolSeq.Where(sym => sym.pOrder == currPOrder));
-            
-            WriteLine( $"\nHONK: getting hi-pemdas op from {hiPSequence.getOutput()}" );
+            // get parenthesis group at highest solver order
+            int? currPOrder = symbolSeq.OrderBy(sym => sym.pOrder).First().pOrder;
+            if (currPOrder != null) { currPOrder = currPOrder.Value; }
+            hiPSequence = new Sequence(symbolSeq.Where(sym => sym.pOrder == currPOrder));
+            WriteLine($"\nHONK: getting hi-pemdas op from {hiPSequence.getOutput()}");
 
-            int pemGroupIDX = 0;
-            int pemChaIDX = 0;
+            int pemGroupIDX = 0; int pemChaIDX = 0;
             Sequence foundOperators = new Sequence();
-            while ( pemGroupIDX < Rules.pemdasGroups.Count() ) 
+            // match each symbol to pemdas-order operator groups
+            while (pemGroupIDX < Rules.pemdasGroups.Count()) 
             {
                 char pemCha = Rules.pemdasGroups[pemGroupIDX][pemChaIDX];
-                foreach ( Symbol sym in hiPSequence )
+                foreach (Symbol sym in hiPSequence)
                 {
-                    if ( sym.cha == pemCha ) { foundOperators.Add(sym); }
+                    if (sym.cha == pemCha) { foundOperators.Add(sym); }
                 }
-                pemChaIDX++; 
-                if (pemChaIDX == Rules.pemdasGroups[pemGroupIDX].Count()) 
+                pemChaIDX++;
+                if (pemChaIDX == Rules.pemdasGroups[pemGroupIDX].Count())
                 {
-                    if (foundOperators.Count() != 0 ) 
+                    if (foundOperators.Count() != 0) // return first match & operands
                     {
                         Symbol soonestPemHi = foundOperators
-                            .OrderBy( s => hiPSequence.IndexOf(s) ).First();
-                        return new Sequence 
+                            .OrderBy(s => hiPSequence.IndexOf(s)).First();
+                        return new Sequence
                         {
-                            hiPSequence[hiPSequence.IndexOf(soonestPemHi)-1], 
-                            soonestPemHi, 
+                            hiPSequence[hiPSequence.IndexOf(soonestPemHi)-1],
+                            soonestPemHi,
                             hiPSequence[hiPSequence.IndexOf(soonestPemHi)+1]
                         };
                     }
-                    else { pemGroupIDX++; pemChaIDX=0; }
+                    else { pemGroupIDX++; pemChaIDX = 0; }
                 }
             }
             return hiPSequence; // default: no operator found, return whole sequence
         }
-        private Number solveOperation(Sequence opertnGroup)
+        private Number? solveOperation(Sequence opertnGroup)
         {
-            Number solveValue = new Number();
+            Sequence solveValue = opertnGroup;
             Number? left = opertnGroup[0] as Number;
             Number? right = opertnGroup[2] as Number;
             if (left != null && right != null)
@@ -252,51 +253,32 @@ namespace clicalc6
                 };
                 if (groupValue != null)
                 {
-                    solveValue.value = groupValue.Value;
-                    return solveValue;
+                    return new Number { value = groupValue.Value };
                 }
-            }
-            else { syntaxValid = false; }
-            return solveValue;
+            } // if not operation or null, return as received
+            return null;
         }
-        private Sequence updateSequence(Number solveValue, Sequence inSequence)
+        private Sequence updateSequence( Number? solveNum, Sequence inSequence )
         {
+            
             Sequence outSequence = inSequence;
 
-            // if hiPSequence.Count() == 1 and is number, return value
-            // if hiPSequence.Count() >= 3, do this:
+            // if ( solveSeq.Count() != 1 ) { syntaxValid = false; return outSequence; }
 
-            /*
-            // replace successful operation group with result-valued number
-            // if final value, assign number to this calculation
-            // if sequence odd number of elements, syntax invalid ( this could go in parseSequence? )
-            Number solveValue = new Number();
-            double? resultNble = solveSequence(operationGroup);
-            if (resultNble.HasValue)
-            {
-                WriteLine($"resultNble.Value{resultNble.Value}");
-                foreach (Symbol sym in opGroup) { outSequence.Remove(sym); }
-                // outSequence.Insert(posit - 1, new Number { value = resultNble.Value });
-                solveValue = new Number { value = resultNble.Value };
-                // refresh parenthesis segment
-                hiPSequence = new Sequence(outSequence.Where(sym => sym.pOrder == pOrder));
-            }
-            else // if solve not successful: bad inputs, not bad developer
-            {
-                WriteLine($"Invalid element in {hiPSequence.getOutput()}");
-                syntaxValid = false; return hiPSequence;
-            }
-                // update Symbol sequence, run end-checks
-                // if number = 1, place as number in highest-pOrder neighbour ( should be both? ), pOrder--, continue
+
+            // update STATEMENT with OPSOLUTION
+            // update OUTSEQUENCE with UPDATEDSTATEMENT
+            // if UPDATEDSTATEMENT.Count() == 1, demote pOrder to highest-pOrder-neighbour.pOrder ( should be both? ), hiPOrder--, continue
+            //  else keep same hiPOrder
+
+            // if OUTSEQUENCE becomes SINGLE NUMBER, ASSIGN OUTCOME and finish
                 // else probably input syntax issue; statements can only consist of odd numbers of elements (i think?)
-                // if result, finish & output
-            }
-            */
+
             return outSequence;
         }
         public void showOutcome()
         {
-            if (solution != null) { solution.outputValue(); }
+            if ( solution != null && syntaxValid == true ) { solution.getOutput(); }
             else { WriteLine("Bad input. NAUGHTY input!"); }
         }
     }
