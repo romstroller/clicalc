@@ -8,8 +8,8 @@ namespace clicalc6
     {
         static void Main(string[] arg)
         {
-            WriteLine("\nCLICALC V6 (now with more cylinders!)\n");
             // Start with example if no input from cmd
+            WriteLine("\nCLICALC V6 (now with more cylinders!)\n");
             string example = "-86 ( 12^3 ( 0.5- -18,000 +9 ) / .2 ) ( 3 ( 1 - 1.5 * -3 ) 4.090 ) 7";
             WriteLine($"EXAMPLE: \n{example}");
             Calculation introCalc = new Calculation('$', example);
@@ -48,17 +48,19 @@ namespace clicalc6
             string inputValidated = validateInput(input);
             Sequence inputSymbols = parseSymbols(inputValidated);
             Sequence signsParsed = parseSigned(inputSymbols);
-            Sequence calculationSeq = parseParentheses(signsParsed);
+            Sequence mainSequence = parseParentheses(signsParsed);
 
             // Resolution loop ( resolooption )
             while (syntaxValid && solution == null)
             {
-                Sequence operatGroup = getOperation(calculationSeq);
-                WriteLine($"\ngetOperation got: {operatGroup.getOutput()}\n");
-                WriteLine("Ctrl-C to exit loop or else to continue"); ReadLine();
-                Number? opSolution = solveOperation(operatGroup);
-                if ( opSolution != null ) { WriteLine($"SOLVE opSolution: { opSolution.value } "); }
-                calculationSeq = updateSequence( opSolution, calculationSeq);
+                (Sequence operatGroup, hiPSequence) = getOperation( mainSequence );
+                // WriteLine($"\ngetOperation got: {operatGroup.getOutput()}\n");
+                // WriteLine("Ctrl-C to exit loop or else to continue"); ReadLine();
+                Sequence hiPSequenceUpdated = solveOperation( operatGroup, hiPSequence );
+                if ( ( hiPSequenceUpdated != null ) && ( hiPSequenceUpdated != hiPSequence) ) {
+                    // WriteLine("=========================================");
+                    // WriteLine($"SOLVE opSolution: { hiPSequenceUpdated.getOutput() } \n"); 
+                    mainSequence = updateSequence( hiPSequenceUpdated, mainSequence);}
             }
         }
         private string validateInput(string input)
@@ -196,17 +198,15 @@ namespace clicalc6
             }
             return parenthSeq;
         }
-        private Sequence getOperation(Sequence symbolSeq)
+        private (Sequence, Sequence) getOperation(Sequence symbolSeq)
         {
-            // get parenthesis group at highest solver order
             int? currPOrder = symbolSeq.OrderBy(sym => sym.pOrder).First().pOrder;
             if (currPOrder != null) { currPOrder = currPOrder.Value; }
+            
             hiPSequence = new Sequence(symbolSeq.Where(sym => sym.pOrder == currPOrder));
-            WriteLine($"\nHONK: getting hi-pemdas op from {hiPSequence.getOutput()}");
 
             int pemGroupIDX = 0; int pemChaIDX = 0;
             Sequence foundOperators = new Sequence();
-            // match each symbol to pemdas-order operator groups
             while (pemGroupIDX < Rules.pemdasGroups.Count()) 
             {
                 char pemCha = Rules.pemdasGroups[pemGroupIDX][pemChaIDX];
@@ -217,25 +217,25 @@ namespace clicalc6
                 pemChaIDX++;
                 if (pemChaIDX == Rules.pemdasGroups[pemGroupIDX].Count())
                 {
-                    if (foundOperators.Count() != 0) // return first match & operands
+                    if (foundOperators.Count() != 0)    // return found operand-group
                     {
                         Symbol soonestPemHi = foundOperators
                             .OrderBy(s => hiPSequence.IndexOf(s)).First();
-                        return new Sequence
+                        return (new Sequence
                         {
                             hiPSequence[hiPSequence.IndexOf(soonestPemHi)-1],
                             soonestPemHi,
                             hiPSequence[hiPSequence.IndexOf(soonestPemHi)+1]
-                        };
+                        }, hiPSequence);
                     }
                     else { pemGroupIDX++; pemChaIDX = 0; }
                 }
             }
-            return hiPSequence; // default: no operator found, return whole sequence
+            return (foundOperators, hiPSequence);       // default return empty opseq
         }
-        private Number? solveOperation(Sequence opertnGroup)
+        private Sequence solveOperation(Sequence opertnGroup, Sequence hiPSequence)
         {
-            Sequence solveValue = opertnGroup;
+            Sequence outSequence = hiPSequence;
             Number? left = opertnGroup[0] as Number;
             Number? right = opertnGroup[2] as Number;
             if (left != null && right != null)
@@ -253,21 +253,33 @@ namespace clicalc6
                 };
                 if (groupValue != null)
                 {
-                    return new Number { value = groupValue.Value };
+                    //insert new num with value in statement at opr. posit, remove opr.
+                    int insertIDX = outSequence.IndexOf( left );
+                    foreach (Symbol sym in opertnGroup) { outSequence.Remove(sym); }
+                    outSequence.Insert( insertIDX, new Number( groupValue.Value ) );
                 }
-            } // if not operation or null, return as received
-            return null;
+            }
+            WriteLine( "SOLVE OUT: " + outSequence.getOutput() );
+            return outSequence;
         }
-        private Sequence updateSequence( Number? solveNum, Sequence inSequence )
+        private Sequence updateSequence( Sequence hiPSequenceUPD, Sequence inSequence )
         {
+            Sequence outSequence = inSequence; 
+
+            // check conditions; replace full sequence at pOrder with updated hi-p sequence 
+            //      and/or finish
+
+            if ( hiPSequenceUPD == outSequence )        // solve-updated p-squence is same as total sequence. ???
+
+            if ( hiPSequenceUPD == hiPSequence ) {  }   // ??
             
-            Sequence outSequence = inSequence;
+            if ( ( outSequence.Count() == 1 ) && ( outSequence[0] is Number ) ) {  } // final value; return as outcome
 
-            // if ( solveSeq.Count() != 1 ) { syntaxValid = false; return outSequence; }
+            if ( hiPSequenceUPD.Count() == 1 ) {  }     // pass value to pOrder of highest-pOrder neighbor
 
-
-            // update STATEMENT with OPSOLUTION
-            // update OUTSEQUENCE with UPDATEDSTATEMENT
+            // update STATEMENT inside SOLVE, return SEQUENCE
+            // here, update OUTSEQUENCE with UPDATEDSTATEMENT
+            
             // if UPDATEDSTATEMENT.Count() == 1, demote pOrder to highest-pOrder-neighbour.pOrder ( should be both? ), hiPOrder--, continue
             //  else keep same hiPOrder
 
@@ -348,6 +360,7 @@ namespace clicalc6
         {
             value = val;
             str = value.ToString();
+            base.str=str;
         }
         internal void parseNumber(Sequence numList)
         {
