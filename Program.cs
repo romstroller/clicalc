@@ -18,7 +18,7 @@ namespace clicalc6
             while (true)
             {
                 WriteLine(""
-                    + "\nNEW CALCULATION"
+                    + "NEW CALCULATION"
                     + "\nOperators: -+*/"
                     + "\nParentheses: 3(2.412(.5*8)"
                     + "\nExponents: 2^5\nSpaces ignored");
@@ -53,32 +53,27 @@ namespace clicalc6
             // Resolution loop ( resolooption )
             while (syntaxValid && solution == null)
             {
-                WriteLine ( $"mainSequence at new loop: \n{ mainSequence.getOutput() }" );
+                // HANDLE IN SOLVE: OPERATION WILL FALL OUTSIDE DOUBLE.MIN-DOUBLE.MAX
+                //  ( ADD EXTERNAL LOGARYTHM CONVERTER? )
 
+                // showSeparator(1, 1, 1);
+                // WriteLine ( $"mainSequence at new loop: \n{ mainSequence.getOutput() }" );
+                // WriteLine( "\ngetOperation");
                 ( Sequence operatGroup, hiPSequence ) = getOperation( mainSequence );
-                // WriteLine($"\ngetOperation got: {operatGroup.getOutput()}\n");
-                // WriteLine("Ctrl-C to exit loop or else to continue"); ReadLine();
-
-
-                WriteLine ( $"hiPSequence \n{ hiPSequence.getOutput() }" );
-
+                // WriteLine ( $"found operation: {operatGroup.getOutput()}" );
+                // WriteLine ( $"hiPSequence: { hiPSequence.getOutput() }" );
+                // WriteLine ( $"hiPSequence[0].pOrder: { hiPSequence[0].pOrder }" );
+                // WriteLine( "\nsolveOperation");
                 Sequence hiPSequenceUpdated = solveOperation( operatGroup, hiPSequence );
-
-                WriteLine ( $"hiPSequenceUpdated \n{ hiPSequenceUpdated.getOutput() }" );
-                WriteLine ( $"hiPSequence \n{ hiPSequence.getOutput() }" );
-
-
+                // WriteLine ( $"hiPSequenceUpdated: { hiPSequenceUpdated.getOutput() }" );
+                // WriteLine ( $"hiPSequenceUpdated[0].pOrder: { hiPSequenceUpdated[0].pOrder }" );
                 if (( hiPSequenceUpdated != null ) && ( hiPSequenceUpdated != hiPSequence ))
                 {
-                    // WriteLine("=========================================");
-                    // WriteLine($"SOLVE opSolution: { hiPSequenceUpdated.getOutput() } \n"); 
+                    // WriteLine("\nupdateSequence");
                     mainSequence = updateSequence( hiPSequenceUpdated, mainSequence );
-
-                    WriteLine ( $"mainSequence UPDATED: \n{ mainSequence.getOutput() }" );
+                    // WriteLine ( $"mainSequence UPDATED: \n{ mainSequence.getOutput() }" );
                 }
-
-                ReadLine();
-
+                // WriteLine( "Finish loop..." ); ReadLine();
             }
         }
         private string validateInput( string input )
@@ -110,7 +105,7 @@ namespace clicalc6
                 }
                 replacePos = 0; groupsPos++;
             }
-            if (fixedInput != input) { WriteLine($"\nIMPLICITS FIXED: \n{fixedInput}\n"); }
+            if (fixedInput != input) { WriteLine($"\nIMPLICITS FIXED: \n{fixedInput}"); }
             return fixedInput;
         }
         private Sequence parseSymbols( string input )
@@ -179,7 +174,6 @@ namespace clicalc6
                 }
                 posit++;
             }
-            WriteLine($"OUSEQ: {outSequence.getOutput()}");
             return outSequence;
         }
         private Sequence parseParentheses(Sequence symbolSeq)
@@ -249,6 +243,7 @@ namespace clicalc6
                     else { pemGroupIDX++; pemChaIDX = 0; }
                 }
             }
+            // WriteLine ( $"found operation: {foundOperators.getOutput()}" );
             return (foundOperators, hiPSequence);       // default return empty opseq
         }
         private Sequence solveOperation( Sequence opertnGroup, Sequence hiPSequence )
@@ -280,65 +275,76 @@ namespace clicalc6
                         new Number(groupValue.Value) { pOrder = operatr.pOrder } );
                 }
             }
-            WriteLine("SOLVE OUT: " + outSequence.getOutput());
+            // WriteLine("SOLVE OUT: " + outSequence.getOutput());
             return outSequence;
         }
         private Sequence updateSequence(Sequence hiPSequenceUPD, Sequence inSequence)
         {
             Sequence outSequence = new Sequence (inSequence);
 
-            // is final value; return as outcome; check before hiP-single check
-            if (( outSequence.Count() == 1) && (outSequence[0] is Number )) { } 
+            // guard against null collectors
+            if ( hiPSequence == null || hiPSequenceUPD == null ) 
+            { 
+                WriteLine( "NULL BOTH PSEQ"); 
+                syntaxValid = false; return outSequence;  
+            }  
 
-            // if hiPSeq single value, take pOrder of highest-pOrder neighbor
-            if ( hiPSequence != null && hiPSequenceUPD.Count() == 1 )        
+            // ELSE substitute solve sequence into outsequence
+            int insertIDX = outSequence.IndexOf( hiPSequence[0] ); 
+            foreach ( Symbol sym in hiPSequence ) { outSequence.Remove(sym); }
+            foreach ( Symbol sym in hiPSequenceUPD )
+            {
+                outSequence.Insert( insertIDX, sym ); insertIDX++;
+            }
+
+            // If final value; return as outcome
+            if (( outSequence.Count() == 1) && (outSequence[0] is Number )) 
+            { 
+                // WriteLine( $"FINITO: {outSequence.getOutput()}"); 
+                this.solution = outSequence; return outSequence;
+
+            } 
+
+            // if hiPSeq is single value, takes pOrder of highest-pOrder neighbor
+            if ( hiPSequenceUPD.Count() == 1 )
             { 
                 // if hip value starts or ends full sequence, get neighbour accordingly
-                int hiPindex = outSequence.IndexOf( hiPSequence[0] );
+                int hiPindex = outSequence.IndexOf( hiPSequenceUPD[0] ); 
+                // WriteLine( $"main index of single hipsequence object: {hiPindex}");
                 Symbol hiPNeighbour = 
                     ( hiPindex == 0 ) ? outSequence[ hiPindex+1 ] :
                     ( hiPindex == outSequence.Count()-1 ) ? outSequence[ hiPindex-1 ] :
                     // else favour highest-pOrder-neighbour
                     ( outSequence[ hiPindex-1 ].pOrder > outSequence[ hiPindex+1 ].pOrder ) ?
                         outSequence[ hiPindex-1 ] : outSequence[ hiPindex+1 ];
+                // WriteLine( $"hiPNeighbour.str: {hiPNeighbour.str}");
+                // WriteLine( $"hiPNeighbour.pOrder: {hiPNeighbour.pOrder}");
 
-                hiPSequence[0].pOrder = hiPNeighbour.pOrder; 
-            }
-            // ELSE substitute solve sequence into outsequence
-            if ( hiPSequence == null || hiPSequenceUPD == null ) {}  // dassa pwob'wum
-            else 
-            { 
-                int insertIDX = outSequence.IndexOf( hiPSequence[0] ); 
-                foreach ( Symbol sym in hiPSequence ) { outSequence.Remove(sym); }
-                foreach ( Symbol sym in hiPSequenceUPD )
-                {
-                    outSequence.Insert( insertIDX, sym ); insertIDX++;
-                }
+
+                outSequence[hiPindex].pOrder = hiPNeighbour.pOrder; 
+                // WriteLine( $"outSequence[hiPindex].pOrder: {outSequence[hiPindex].pOrder}");
             }
 
-            WriteLine( "UPDATEOUT OUTSEQUENCE" + outSequence.getOutput() );
-            ReadLine();
-
-            
-
-
-
-
-            // update STATEMENT inside SOLVE, return SEQUENCE
-            // here, update OUTSEQUENCE with UPDATEDSTATEMENT
-
-            // if UPDATEDSTATEMENT.Count() == 1, demote pOrder to highest-pOrder-neighbour.pOrder ( should be both? ), hiPOrder--, continue
-            //  else keep same hiPOrder
-
-            // if OUTSEQUENCE becomes SINGLE NUMBER, ASSIGN OUTCOME and finish
-            // else probably input syntax issue; statements can only consist of odd numbers of elements (i think?)
+            // WriteLine( "IN UPDATE OUTSEQUENCE\n" + outSequence.getOutput() );
 
             return outSequence;
         }
         public void showOutcome()
         {
-            if (solution != null && syntaxValid == true) { solution.getOutput(); }
+            if (solution != null && syntaxValid == true) 
+            { 
+                showSeparator(1, 1, 1);
+                WriteLine( $"CLICALC GOT: \n{solution.getOutput()}" ); 
+                showSeparator(1, 2, 1);
+            }
             else { WriteLine("Bad input. NAUGHTY input!"); }
+        }
+
+        public void showSeparator( int aboveSp = 0, int lines = 1, int belowSp = 0 ) 
+        {
+            for (int i=0; i<aboveSp; i++) { WriteLine("\n"); }
+            for (int i=0; i<lines; i++) { WriteLine("===================================="); }
+            for (int i=0; i<belowSp; i++) { WriteLine("\n"); }
         }
     }
     static class Rules
