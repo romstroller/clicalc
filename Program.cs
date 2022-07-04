@@ -9,6 +9,7 @@ namespace clicalc6
         static void Main(string[] arg)
         {
             // Start with example if no input from cmd
+            WriteLine("\n====================================");
             WriteLine("\nCLICALC V6 (now with more cylinders!)\n");
             string example = "-86 ( 12^3 ( 0.5- -18,000 +9 ) / .2 ) ( 3 ( 1 - 1.5 * -3 ) 4.090 ) 7";
             WriteLine($"EXAMPLE: \n{example}");
@@ -53,50 +54,31 @@ namespace clicalc6
             // Resolution loop ( resolooption )
             while (syntaxValid && solution == null)
             {
-                // HANDLE IN SOLVE: OPERATION WILL FALL OUTSIDE DOUBLE.MIN-DOUBLE.MAX
-                //  ( ADD EXTERNAL LOGARYTHM CONVERTER? )
-
-                // showSeparator(1, 1, 1);
-                // WriteLine ( $"mainSequence at new loop: \n{ mainSequence.getOutput() }" );
-                // WriteLine( "\ngetOperation");
-                ( Sequence operatGroup, hiPSequence ) = getOperation( mainSequence );
-                // WriteLine ( $"found operation: {operatGroup.getOutput()}" );
-                // WriteLine ( $"hiPSequence: { hiPSequence.getOutput() }" );
-                // WriteLine ( $"hiPSequence[0].pOrder: { hiPSequence[0].pOrder }" );
-                // WriteLine( "\nsolveOperation");
-                Sequence hiPSequenceUpdated = solveOperation( operatGroup, hiPSequence );
-                // WriteLine ( $"hiPSequenceUpdated: { hiPSequenceUpdated.getOutput() }" );
-                // WriteLine ( $"hiPSequenceUpdated[0].pOrder: { hiPSequenceUpdated[0].pOrder }" );
-                if (( hiPSequenceUpdated != null ) && ( hiPSequenceUpdated != hiPSequence ))
-                {
-                    // WriteLine("\nupdateSequence");
-                    mainSequence = updateSequence( hiPSequenceUpdated, mainSequence );
-                    // WriteLine ( $"mainSequence UPDATED: \n{ mainSequence.getOutput() }" );
-                }
-                // WriteLine( "Finish loop..." ); ReadLine();
+                (Sequence operatGroup, hiPSequence) = getOperation(mainSequence);
+                Sequence hiPSequenceUpdated = solveOperation(operatGroup, hiPSequence);
+                mainSequence = updateSequence(hiPSequenceUpdated, mainSequence);
             }
         }
-        private string validateInput( string input )
+        private string validateInput(string input)
         {
-            // prep output data
             string fixedInput = input;
+            
             // run check-replace for pairs in group in groups
             List<List<string[]>> patternGroups = new List<List<string[]>> {
                 Rules.implicits, Rules.illegals };
-            string prevInput;
             int groupsPos = 0; int replacePos = 0;
             string[] replacePair; string match; string replace;
             foreach (List<string[]> group in patternGroups)
             {
                 while (replacePos < group.Count())
                 {
-                    prevInput = fixedInput;
+                    string prevInput = fixedInput;
                     replacePair = group[replacePos];
                     match = replacePair[0]; replace = replacePair[1];
                     fixedInput = Regex.Replace(fixedInput, match, replace);
                     replacePos++;
 
-                    // stop immediately if illegal input
+                    // stop immediately on illegal input
                     if (groupsPos == 1 && fixedInput != prevInput)
                     {
                         WriteLine("\n" + fixedInput);
@@ -108,7 +90,7 @@ namespace clicalc6
             if (fixedInput != input) { WriteLine($"\nIMPLICITS FIXED: \n{fixedInput}"); }
             return fixedInput;
         }
-        private Sequence parseSymbols( string input )
+        private Sequence parseSymbols(string input)
         {
             Sequence outList = new Sequence(); // return group
             Sequence numList = new Sequence(); // number-segment group
@@ -142,14 +124,14 @@ namespace clicalc6
                         outList.Add(newNum);
                     };
                 }
-                else { outList.Add( new Symbol( c ) ); } // else add as symbol
+                else { outList.Add(new Symbol(c)); } // else add as symbol
                 index++;
             }
             return outList;
         }
-        private Sequence parseSigned( Sequence symbolSeq )
+        private Sequence parseSigned(Sequence symbolSeq)
         {
-            Sequence outSequence = new Sequence( symbolSeq );
+            Sequence outSequence = new Sequence(symbolSeq);
             int posit = 1; // start at first possible number-part
 
             while (posit < outSequence.Count())
@@ -243,13 +225,12 @@ namespace clicalc6
                     else { pemGroupIDX++; pemChaIDX = 0; }
                 }
             }
-            // WriteLine ( $"found operation: {foundOperators.getOutput()}" );
             return (foundOperators, hiPSequence);       // default return empty opseq
         }
-        private Sequence solveOperation( Sequence opertnGroup, Sequence hiPSequence )
+        private Sequence solveOperation(Sequence opertnGroup, Sequence hiPSequence)
         {
-            if ( hiPSequence.Count() == 1 ){ return hiPSequence; }
-            Sequence outSequence = new Sequence( hiPSequence );
+            if (hiPSequence.Count() == 1) { return hiPSequence; }
+            Sequence outSequence = new Sequence(hiPSequence);
             Number? left = opertnGroup[0] as Number;
             Symbol operatr = opertnGroup[1];
             Number? right = opertnGroup[2] as Number;
@@ -271,80 +252,63 @@ namespace clicalc6
                     //insert new num with value in statement at opr. posit, remove opr.
                     int insertIdx = outSequence.IndexOf(left);
                     foreach (Symbol sym in opertnGroup) { outSequence.Remove(sym); }
-                    outSequence.Insert(insertIdx, 
-                        new Number(groupValue.Value) { pOrder = operatr.pOrder } );
+                    outSequence.Insert(insertIdx,
+                        new Number(groupValue.Value) { pOrder = operatr.pOrder });
                 }
             }
-            // WriteLine("SOLVE OUT: " + outSequence.getOutput());
             return outSequence;
         }
         private Sequence updateSequence(Sequence hiPSequenceUPD, Sequence inSequence)
         {
-            Sequence outSequence = new Sequence (inSequence);
-
+            Sequence outSequence = new Sequence(inSequence);
             // guard against null collectors
-            if ( hiPSequence == null || hiPSequenceUPD == null ) 
-            { 
-                WriteLine( "NULL BOTH PSEQ"); 
-                syntaxValid = false; return outSequence;  
-            }  
-
-            // ELSE substitute solve sequence into outsequence
-            int insertIDX = outSequence.IndexOf( hiPSequence[0] ); 
-            foreach ( Symbol sym in hiPSequence ) { outSequence.Remove(sym); }
-            foreach ( Symbol sym in hiPSequenceUPD )
+            if (hiPSequence == null || hiPSequenceUPD == null)
             {
-                outSequence.Insert( insertIDX, sym ); insertIDX++;
+                WriteLine("NULL BOTH PSEQ"); syntaxValid = false; return outSequence;
             }
-
+            // ELSE substitute solve sequence into outsequence
+            int insertIDX = outSequence.IndexOf(hiPSequence[0]);
+            foreach (Symbol sym in hiPSequence) { outSequence.Remove(sym); }
+            foreach (Symbol sym in hiPSequenceUPD)
+            {
+                outSequence.Insert(insertIDX, sym); insertIDX++;
+            }
             // If final value; return as outcome
-            if (( outSequence.Count() == 1) && (outSequence[0] is Number )) 
-            { 
-                // WriteLine( $"FINITO: {outSequence.getOutput()}"); 
+            if ((outSequence.Count() == 1) && (outSequence[0] is Number))
+            {
                 this.solution = outSequence; return outSequence;
-
-            } 
-
-            // if hiPSeq is single value, takes pOrder of highest-pOrder neighbor
-            if ( hiPSequenceUPD.Count() == 1 )
-            { 
-                // if hip value starts or ends full sequence, get neighbour accordingly
-                int hiPindex = outSequence.IndexOf( hiPSequenceUPD[0] ); 
-                // WriteLine( $"main index of single hipsequence object: {hiPindex}");
-                Symbol hiPNeighbour = 
-                    ( hiPindex == 0 ) ? outSequence[ hiPindex+1 ] :
-                    ( hiPindex == outSequence.Count()-1 ) ? outSequence[ hiPindex-1 ] :
-                    // else favour highest-pOrder-neighbour
-                    ( outSequence[ hiPindex-1 ].pOrder > outSequence[ hiPindex+1 ].pOrder ) ?
-                        outSequence[ hiPindex-1 ] : outSequence[ hiPindex+1 ];
-                // WriteLine( $"hiPNeighbour.str: {hiPNeighbour.str}");
-                // WriteLine( $"hiPNeighbour.pOrder: {hiPNeighbour.pOrder}");
-
-
-                outSequence[hiPindex].pOrder = hiPNeighbour.pOrder; 
-                // WriteLine( $"outSequence[hiPindex].pOrder: {outSequence[hiPindex].pOrder}");
             }
+            // if hiPSeq is single value, takes pOrder of highest-pOrder neighbor
+            if (hiPSequenceUPD.Count() == 1)
+            {
+                // if hip value starts or ends full sequence, get neighbour accordingly
+                int hiPindex = outSequence.IndexOf(hiPSequenceUPD[0]);
+                Symbol hiPNeighbour =
+                    (hiPindex == 0) ? outSequence[hiPindex + 1] :
+                    (hiPindex == outSequence.Count() - 1) ? outSequence[hiPindex - 1] :
+                    // else favour highest-pOrder-neighbour
+                    (outSequence[hiPindex - 1].pOrder > outSequence[hiPindex + 1].pOrder) ?
+                        outSequence[hiPindex - 1] : outSequence[hiPindex + 1];
 
-            // WriteLine( "IN UPDATE OUTSEQUENCE\n" + outSequence.getOutput() );
-
+                outSequence[hiPindex].pOrder = hiPNeighbour.pOrder;
+            }
             return outSequence;
         }
         public void showOutcome()
         {
-            if (solution != null && syntaxValid == true) 
-            { 
+            if (solution != null && syntaxValid == true)
+            {
                 showSeparator(1, 1, 1);
-                WriteLine( $"CLICALC GOT: \n{solution.getOutput()}" ); 
+                WriteLine($"CLICALC GOT: \n{solution.getOutput()}");
                 showSeparator(1, 2, 1);
             }
-            else { WriteLine("Bad input. NAUGHTY input!"); }
+            else { WriteLine("Bad input. NAUGHTY input!"); showSeparator(1, 2, 1); }
         }
-
-        public void showSeparator( int aboveSp = 0, int lines = 1, int belowSp = 0 ) 
+        public void showSeparator(int aboveSp = 0, int lines = 1, int belowSp = 0)
         {
-            for (int i=0; i<aboveSp; i++) { WriteLine("\n"); }
-            for (int i=0; i<lines; i++) { WriteLine("===================================="); }
-            for (int i=0; i<belowSp; i++) { WriteLine("\n"); }
+            for (int i = 0; i < aboveSp; i++) { WriteLine("\n"); }
+            for (int i = 0; i < lines; i++) { WriteLine("===================================="); }
+            for (int i = 0; i < belowSp; i++) { WriteLine("\n"); }
         }
     }
     static class Rules
@@ -369,6 +333,9 @@ namespace clicalc6
             //  identify any not(legal character class)
             new string[] { @"(?<illeg>[^\s,0-9\^\/\*\+\-\(\)\.])",
                 "...\nINVALID: >${illeg}< (illegal non-variable character)\n" },
+            //  more than one consecutive mult/divide/expon/decimal
+            new string[] { @"(?<illeg>[\.\^\*/]{2,})",
+                "...\nINVALID: >${illeg}< (more than one consecutive '*' '/' '^' or '.')\n" },
             //  more than two plus/minus (allows for operations on signed numbers)
             new string[] { @"(?<illeg>[\+\-][\+\-][\+\-])",
                 "...\nINVALID: >${illeg}< (more than two consecutive '+' or '-')\n" },
@@ -419,11 +386,9 @@ namespace clicalc6
         {
             string numString = numList.getOutput();
 
-            // parse double
             try { this.value = Convert.ToDouble(numString); this.str = value.ToString(); }
             catch (FormatException)
             {
-                WriteLine($"Number parse failed: {numString} \n");
                 syntaxValid = false;
             }
         }
