@@ -1,1 +1,2 @@
-"# terminal calculator solution" 
+## Console calculator solution
+handles parenthesized expression and signed numbers. 

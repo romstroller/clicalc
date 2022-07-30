@@ -2,7 +2,7 @@
 using System.Collections.ObjectModel;
 using static System.Console;
 
-namespace clicalc6
+namespace clicalc
 {
     class Program
     {
@@ -420,7 +420,7 @@ namespace clicalc6
             // ILLEGAL patterns
             //  identify any not(legal character class)
             new string[] { @"(?<illeg>[^\s,0-9\^\/\*\+\-\(\)\.])",
-                " [...\nINVALID: >${illeg}< (illegal non-variable character)\n...]" },
+                "...\nINVALID: [ ${illeg} ] (illegal non-variable character)\n" },
             //  more than one consecutive mult/divide/expon/decimal
             new string[] { @"(?<illeg>[\.\^\*/]{2,})",
                 " [...\nINVALID: >${illeg}< (more than one consecutive '*' '/' '^' or '.')\n...]" },
